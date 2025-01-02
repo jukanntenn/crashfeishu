@@ -2,5 +2,19 @@
 name = "crashfeishu"
 version = "0.1.0"
 edition = "2021"
+authors = ["jukanntenn <jukanntenn@outlook.com>"]
+description = "A Supervisor event listener that sends Feishu notifications when managed processes crash."
+readme = "README.md"
+homepage = "https://github.com/jukanntenn/crashfeishu"
+repository = "https://github.com/jukanntenn/crashfeishu"
+documentation = "https://github.com/jukanntenn/crashfeishu/blob/main/README.md"
+license = "MIT"
+categories = ["command-line-utilities"]
+keywords = ["cli", "supervisor", "feishu"]
 
 [dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
+env_logger = "0.11.6"
+log = "0.4.22"
+reqwest = { version = "0.12.12", features = ["blocking"] }
+openssl = { version = "0.10", features = ["vendored"] }

@@ -1,0 +1,62 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GITHUB_REF: "${{ github.ref }}"
+  LINUX_AMD64_TARGET: x86_64-unknown-linux-musl
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install musl-tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Add musl target
+        run: rustup target add ${{ env.LINUX_AMD64_TARGET }}
+
+      - name: Build
+        run: cargo build --release --target ${{ env.LINUX_AMD64_TARGET }}
+
+      - name: Query version number
+        id: get_version
+        shell: bash
+        run: |
+          echo "using version tag ${GITHUB_REF:10}"
+          echo ::set-output name=version::"${GITHUB_REF:10}"
+
+      - name: Prepare binaries
+        run: |
+          mkdir release
+          cp target/${{ env.LINUX_AMD64_TARGET }}/release/crashfeishu release/
+          cd release
+          tar czvf crashfeishu-${{ steps.get_version.outputs.version }}-${{ env.LINUX_AMD64_TARGET }}.tar.gz crashfeishu
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: ${{ steps.get_version.outputs.version }}
+          draft: true
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/crashfeishu-${{ steps.get_version.outputs.version }}-${{ env.LINUX_AMD64_TARGET }}.tar.gz
+          asset_name: crashfeishu-${{ steps.get_version.outputs.version }}-${{ env.LINUX_AMD64_TARGET }}.tar.gz
+          asset_content_type: application/gzip
