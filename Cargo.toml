@@ -1,9 +1,9 @@
 [package]
 name = "crashfeishu"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["jukanntenn <jukanntenn@outlook.com>"]
-description = "A Supervisor event listener that sends Feishu notifications when managed processes crash."
+description = "A Supervisor event listener that pushes Feishu notifications when managed processes crash."
 readme = "README.md"
 homepage = "https://github.com/jukanntenn/crashfeishu"
 repository = "https://github.com/jukanntenn/crashfeishu"

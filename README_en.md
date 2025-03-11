@@ -2,14 +2,14 @@
 
 [简体中文](./README.md) | English
 
-A Supervisor event listener that sends Feishu notifications when managed processes crash.
+A Supervisor event listener that pushes Feishu notifications when managed processes crash.
 
 ## Installation
 
 Download the executable file:
 
 ```bash
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.0/crashfeishu-v0.1.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.1/crashfeishu-v0.1.1-x86_64-unknown-linux-musl.tar.gz | tar -xzv
 ```
 
 Or use cargo:
@@ -30,8 +30,8 @@ events = PROCESS_STATE
 
 Parameters description of crashfeishu:
 
-- `-w <webhook_url>`: Feishu Webhook URL, used to send notifications.
-- `-p <program_name>`: The name of the process to be monitored. The format of `group_name:process_name` is supported (for group processes). This parameter can be used repeatedly to monitor multiple processes. If not specified, all processes will be monitored by default.
+- `-w <webhook_url>`: Specify a Feishu webhook URL to push notifications to.
+- `-p <program_name>`: Specify a supervisor process_name. Push Feishu notification when this process transitions to the EXITED state unexpectedly. If this process is part of a group, it can be specified using the 'group_name:process_name' syntax. This option can be specified multiple times, allowing for specification of multiple processes. If not specified, all processes will be monitored.
 
 ## Examples
 

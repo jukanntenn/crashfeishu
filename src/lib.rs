@@ -6,32 +6,21 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 
 #[derive(Parser, Debug)]
-#[clap(author = "jukanntenn <jukanntenn@outlook.com>", version, about, long_about = None)]
+#[command(author = "jukanntenn <jukanntenn@outlook.com>", version)]
+/// This event listener will push Feishu message when processes that are children of
+/// supervisord transition unexpectedly to the EXITED state.
 pub struct Args {
-    /// Specify a supervisor process_name. Send Feishu message when this process
-    /// transitions to the EXITED state unexpectedly. If this process is
-    /// part of a group, it can be specified using the
-    /// 'group_name:process_name' syntax.
+    /// Specify a supervisor process_name.
     ///
-    /// Example:
-    ///   -p my_process
-    ///   -p my_group:my_process
-    #[clap(
-        short = 'p',
-        long = "program",
-        help = "Specify the supervisor process name or group:process to monitor."
-    )]
+    /// Push Feishu notification when this process transitions to the EXITED state unexpectedly.
+    /// If this process is part of a group, it can be specified using the 'group_name:process_name' syntax.
+    /// This option can be specified multiple times, allowing for specification of multiple processes.
+    /// If not specified, all processes will be monitored.
+    #[arg(short, long)]
     pub program: Vec<String>,
 
-    /// Specify the Feishu webhook URL to send messages to.
-    ///
-    /// Example:
-    ///   -w https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token
-    #[clap(
-        short = 'w',
-        long = "webhook",
-        help = "Specify the Feishu webhook URL to send crash notifications."
-    )]
+    /// Specify a Feishu webhook URL to push notifications to.
+    #[arg(short, long)]
     pub webhook: Option<String>,
 }
 
@@ -39,37 +28,31 @@ type MyResult<T> = Result<T, Box<dyn Error>>;
 type TokenSet = HashMap<String, String>;
 
 fn parse_token_set(line: &str) -> TokenSet {
-    let mut set = HashMap::new();
-    for pair in line.trim().split(' ') {
-        let mut iter = pair.splitn(2, ':');
-        let k = iter.next().unwrap().to_string();
-        let v = iter.next().unwrap().to_string();
-        set.insert(k, v);
-    }
-    set
+    line.trim()
+        .split(' ')
+        .filter(|s| !s.is_empty())
+        .map(|pair| {
+            let (k, v) = pair.split_once(':').unwrap();
+            (k.to_string(), v.to_string())
+        })
+        .collect()
 }
 
-fn is_wanted_program(full_name: &str, program: &Vec<String>) -> bool {
-    if program.len() == 0 {
+fn should_monitor(full_name: &str, program: &Vec<String>) -> bool {
+    if program.is_empty() {
         return true;
     }
 
-    for value in program {
+    program.iter().any(|value| {
         if value.contains(':') {
-            if value == full_name {
-                return true;
-            }
+            value == full_name
         } else {
-            if full_name == format!("{}:{}", value, value) {
-                return true;
-            }
+            format!("{}:{}", value, value) == full_name
         }
-    }
-
-    false
+    })
 }
 
-fn send_feishu(webhook: &str, msg: &str) -> MyResult<()> {
+fn push_feishu(webhook: &str, msg: &str) -> MyResult<()> {
     let client = reqwest::blocking::Client::new();
     let payload = format!(r#"{{"msg_type":"text","content":{{"text":"{}"}}}}"#, msg);
     let res = client
@@ -81,15 +64,12 @@ fn send_feishu(webhook: &str, msg: &str) -> MyResult<()> {
     if res.status().is_success() {
         Ok(())
     } else {
-        let code = res.status();
+        let status = res.status();
         let text = res
             .text()
-            .unwrap_or_else(|e| format!("Failed to read response body: {}", e));
-        Err(format!(
-            "Failed to send message to Feishu. Status code: {}. Response: {}",
-            code, text
-        )
-        .into())
+            .unwrap_or_else(|e| format!("failed to read response body: {}", e));
+
+        Err(format!("{} {}", status, text).into())
     }
 }
 
@@ -161,7 +141,7 @@ pub fn run(args: Args) -> MyResult<()> {
         }
 
         let full_name = format!("{}:{}", pset["groupname"], pset["processname"]);
-        if !is_wanted_program(&full_name, &args.program) {
+        if !should_monitor(&full_name, &args.program) {
             listener.ok(&mut stdout)?;
             continue;
         }
@@ -170,17 +150,17 @@ pub fn run(args: Args) -> MyResult<()> {
             "Process {} in group {} exited unexpectedly (pid {}) from state {}",
             pset["processname"], pset["groupname"], pset["pid"], pset["from_state"],
         );
-
         debug!("{}", msg);
+
         if let Some(webhook) = args.webhook.as_ref() {
-            match send_feishu(webhook, &msg) {
+            match push_feishu(webhook, &msg) {
                 Ok(()) => {}
                 Err(e) => {
-                    error!("Failed to send message to Feishu: {}", e);
+                    error!("failed to push message to feishu: {}", e);
                 }
             }
         } else {
-            warn!("No webhook specified, message not sent to Feishu");
+            warn!("no webhook specified, message will not be pushed to feishu");
         }
 
         listener.ok(&mut stdout)?;
@@ -189,13 +169,15 @@ pub fn run(args: Args) -> MyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_wanted_program;
     use super::parse_token_set;
+    use super::should_monitor;
+    use super::EventListenerProtocol;
     use std::collections::HashMap;
+    use std::io::Cursor;
 
     #[test]
     fn test_parse_token_set_single_pair() {
-        let line = "key:value";
+        let line = "key:value\n";
         let result = parse_token_set(line);
         let mut expected = HashMap::new();
         expected.insert("key".to_string(), "value".to_string());
@@ -204,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_parse_token_set_multiple_pairs() {
-        let line = "  key1:value1 key2:value2 ";
+        let line = "  key1:value1 key2:value2 \n";
         let result = parse_token_set(line);
         let mut expected = HashMap::new();
         expected.insert("key1".to_string(), "value1".to_string());
@@ -213,30 +195,79 @@ mod tests {
     }
 
     #[test]
-    fn test_is_wanted_program_empty_program() {
+    fn test_should_monitor_empty_program() {
         let full_name = "test_name";
         let program: Vec<String> = Vec::new();
-        assert!(is_wanted_program(full_name, &program));
+        assert!(should_monitor(full_name, &program));
     }
 
     #[test]
-    fn test_is_wanted_program_with_colon_match() {
+    fn test_should_monitor_with_colon_match() {
         let full_name = "name:value";
         let program = vec!["name:value".to_string(), "other_value".to_string()];
-        assert!(is_wanted_program(full_name, &program));
+        assert!(should_monitor(full_name, &program));
     }
 
     #[test]
-    fn test_is_wanted_program_without_colon_match() {
+    fn test_should_monitor_without_colon_match() {
         let full_name = "name:name";
         let program = vec!["name".to_string(), "other_name".to_string()];
-        assert!(is_wanted_program(full_name, &program));
+        assert!(should_monitor(full_name, &program));
     }
 
     #[test]
-    fn test_is_wanted_program_no_match() {
+    fn test_should_monitor_no_match() {
         let full_name = "unmatched_name";
         let program = vec!["name:value".to_string(), "other_value".to_string()];
-        assert!(!is_wanted_program(full_name, &program));
+        assert!(!should_monitor(full_name, &program));
+    }
+
+    #[test]
+    fn test_event_listener_ready() {
+        let protocol = EventListenerProtocol {};
+        let mut output = Vec::new();
+
+        protocol.ready(&mut output).unwrap();
+
+        assert_eq!(String::from_utf8(output).unwrap(), "READY\n");
+    }
+
+    #[test]
+    fn test_event_listener_ok() {
+        let protocol = EventListenerProtocol {};
+        let mut output = Vec::new();
+
+        protocol.ok(&mut output).unwrap();
+
+        assert_eq!(String::from_utf8(output).unwrap(), "RESULT 2\nOK");
+    }
+
+    #[test]
+    fn test_event_listener_fail() {
+        let protocol = EventListenerProtocol {};
+        let mut output = Vec::new();
+
+        protocol.fail(&mut output).unwrap();
+
+        assert_eq!(String::from_utf8(output).unwrap(), "RESULT 4\nFAIL");
+    }
+
+    #[test]
+    fn test_event_listener_wait() {
+        let protocol = EventListenerProtocol {};
+        let input_data = b"len:5 event:PROCESS_STATE_EXITED\nHello";
+        let mut input = Cursor::new(input_data.to_vec());
+        let mut output = Vec::new();
+
+        let (headers, payload) = protocol.wait(&mut input, &mut output).unwrap();
+
+        assert_eq!(String::from_utf8(output).unwrap(), "READY\n");
+
+        let mut expected_headers = HashMap::new();
+        expected_headers.insert("len".to_string(), "5".to_string());
+        expected_headers.insert("event".to_string(), "PROCESS_STATE_EXITED".to_string());
+        assert_eq!(headers, expected_headers);
+
+        assert_eq!(payload, b"Hello");
     }
 }
