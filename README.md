@@ -9,7 +9,11 @@
 下载可执行文件：
 
 ```bash
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.1/crashfeishu-v0.1.1-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+# for x86_64
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.2/crashfeishu-v0.1.2-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+
+# for arm64
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.2/crashfeishu-v0.1.2-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
 ```
 
 或者使用 cargo：
