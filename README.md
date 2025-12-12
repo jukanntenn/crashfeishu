@@ -34,8 +34,18 @@ events = PROCESS_STATE
 
 crashfeishu 参数说明：
 
-- `-w <webhook_url>`：Feishu Webhook URL，用于发送通知。
+- `-w <webhook_url>`：Feishu Webhook URL，用于发送通知。如果未指定，程序会尝试从环境变量 `CRASHFEISHU_WEBHOOK` 读取。
 - `-p <program_name>`：监听的进程名称，支持 group_name:process_name 格式（用于进程组），可重复使用该参数监听多个进程，不指定则默认监听所有进程。
+
+### 环境变量
+
+除了使用命令行参数，也可以通过环境变量设置 webhook URL：
+
+```bash
+export CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token
+```
+
+**优先级**：命令行参数 > 环境变量。如果两者都未设置，程序会输出警告日志但继续运行。
 
 ## 示例
 
@@ -63,4 +73,13 @@ events = PROCESS_STATE
 [eventlistener:crashfeishu]
 command = /path/to/crashfeishu -w https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token
 events = PROCESS_STATE
+```
+
+### 4. 使用环境变量
+
+```ini
+[eventlistener:crashfeishu]
+command = /path/to/crashfeishu -p my_process
+events = PROCESS_STATE
+environment=CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token,RUST_LOG=debug
 ```

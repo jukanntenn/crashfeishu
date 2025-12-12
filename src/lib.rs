@@ -2,6 +2,7 @@ use clap::Parser;
 use log::{debug, error, warn};
 use reqwest;
 use std::collections::HashMap;
+use std::env;
 use std::error::Error;
 use std::io::{self, BufRead, Write};
 
@@ -26,6 +27,14 @@ pub struct Args {
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
 type TokenSet = HashMap<String, String>;
+
+fn get_webhook_url(arg_webhook: Option<String>) -> Option<String> {
+    arg_webhook.or_else(|| {
+        env::var("CRASHFEISHU_WEBHOOK")
+            .ok()
+            .filter(|s| !s.is_empty())
+    })
+}
 
 fn parse_token_set(line: &str) -> TokenSet {
     line.trim()
@@ -120,6 +129,8 @@ impl EventListenerProtocol {
 pub fn run(args: Args) -> MyResult<()> {
     env_logger::init();
 
+    let webhook = get_webhook_url(args.webhook);
+
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
@@ -152,7 +163,7 @@ pub fn run(args: Args) -> MyResult<()> {
         );
         debug!("{}", msg);
 
-        if let Some(webhook) = args.webhook.as_ref() {
+        if let Some(webhook) = &webhook {
             match push_feishu(webhook, &msg) {
                 Ok(()) => {}
                 Err(e) => {
@@ -160,7 +171,7 @@ pub fn run(args: Args) -> MyResult<()> {
                 }
             }
         } else {
-            warn!("no webhook specified, message will not be pushed to feishu");
+            warn!("no webhook specified (neither --webhook argument nor CRASHFEISHU_WEBHOOK environment variable), message will not be pushed to feishu");
         }
 
         listener.ok(&mut stdout)?;
