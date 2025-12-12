@@ -10,10 +10,10 @@ Download the executable file:
 
 ```bash
 # for x86_64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.2/crashfeishu-v0.1.2-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
 
 # for arm64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.1.2/crashfeishu-v0.1.2-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
 ```
 
 Or use cargo:
