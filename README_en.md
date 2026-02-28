@@ -10,10 +10,10 @@ Download the executable file:
 
 ```bash
 # for x86_64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.3.0/crashfeishu-v0.3.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
 
 # for arm64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.3.0/crashfeishu-v0.3.0-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
 ```
 
 Or use cargo:
@@ -36,6 +36,7 @@ Parameters description of crashfeishu:
 
 - `-w <webhook_url>`: Specify a Feishu webhook URL to push notifications to. If not specified, the program will try to read from the `CRASHFEISHU_WEBHOOK` environment variable.
 - `-p <program_name>`: Specify a supervisor process_name. Push Feishu notification when this process transitions to the EXITED state unexpectedly. If this process is part of a group, it can be specified using the 'group_name:process_name' syntax. This option can be specified multiple times, allowing for specification of multiple processes. If not specified, all processes will be monitored.
+- `--batch-interval <minutes>`: Batching interval in minutes. When enabled, you must add `TICK_60` to `events`.
 
 ### Environment Variables
 
@@ -46,6 +47,31 @@ export CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-web
 ```
 
 **Priority**: Command line arguments > Environment variables. If neither is set, the program will output a warning log but continue running.
+
+## Batch Mode
+
+Batch mode prevents message floods when processes crash repeatedly.
+
+### Configuration Example
+
+```ini
+[eventlistener:crashfeishu]
+command = /path/to/crashfeishu -w <webhook_url> --batch-interval 1.0
+events = PROCESS_STATE,TICK_60
+```
+
+### Message Format
+
+Batch notifications are grouped by process and include timestamps and crash details:
+
+```
+⚠️ Crash Summary
+
+my_group:my_process: 3 times
+  - 14:28:15 | Process my_process in group my_group exited unexpectedly (pid 12345) from state RUNNING
+  - 14:28:45 | Process my_process in group my_group exited unexpectedly (pid 12346) from state RUNNING
+  - 14:29:12 | Process my_process in group my_group exited unexpectedly (pid 12347) from state RUNNING
+```
 
 ## Examples
 
@@ -83,3 +109,15 @@ command = /path/to/crashfeishu -p my_process
 events = PROCESS_STATE
 environment=CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token,RUST_LOG=debug
 ```
+
+### 5. Batch Mode
+
+When processes crash repeatedly, use batch mode to prevent message floods. Notifications are aggregated and sent every minute:
+
+```ini
+[eventlistener:crashfeishu]
+command = /path/to/crashfeishu -w https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token --batch-interval 1
+events = PROCESS_STATE,TICK_60
+```
+
+**Note**: When using `--batch-interval`, you must add `TICK_60` to `events`.

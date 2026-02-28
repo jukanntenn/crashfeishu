@@ -10,10 +10,10 @@
 
 ```bash
 # for x86_64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.3.0/crashfeishu-v0.3.0-x86_64-unknown-linux-musl.tar.gz | tar -xzv
 
 # for arm64
-curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.2.0/crashfeishu-v0.2.0-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
+curl -L https://github.com/jukanntenn/crashfeishu/releases/download/v0.3.0/crashfeishu-v0.3.0-aarch64-unknown-linux-gnu.tar.gz | tar -xzv
 ```
 
 或者使用 cargo：
@@ -36,6 +36,7 @@ crashfeishu 参数说明：
 
 - `-w <webhook_url>`：Feishu Webhook URL，用于发送通知。如果未指定，程序会尝试从环境变量 `CRASHFEISHU_WEBHOOK` 读取。
 - `-p <program_name>`：监听的进程名称，支持 group_name:process_name 格式（用于进程组），可重复使用该参数监听多个进程，不指定则默认监听所有进程。
+- `--batch-interval <分钟>`：批量发送周期（分钟）。启用后需要在 `events` 中添加 `TICK_60`。
 
 ### 环境变量
 
@@ -46,6 +47,31 @@ export CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-web
 ```
 
 **优先级**：命令行参数 > 环境变量。如果两者都未设置，程序会输出警告日志但继续运行。
+
+## Batching 模式
+
+当进程反复崩溃时，可以开启批量发送通知，避免消息爆炸。
+
+### 配置示例
+
+```ini
+[eventlistener:crashfeishu]
+command = /path/to/crashfeishu -w <webhook_url> --batch-interval 1.0
+events = PROCESS_STATE,TICK_60
+```
+
+### 消息格式
+
+批量通知会按进程分组，包含时间戳和崩溃详情：
+
+```
+⚠️ Crash Summary
+
+my_group:my_process: 3 times
+  - 14:28:15 | Process my_process in group my_group exited unexpectedly (pid 12345) from state RUNNING
+  - 14:28:45 | Process my_process in group my_group exited unexpectedly (pid 12346) from state RUNNING
+  - 14:29:12 | Process my_process in group my_group exited unexpectedly (pid 12347) from state RUNNING
+```
 
 ## 示例
 
@@ -83,3 +109,15 @@ command = /path/to/crashfeishu -p my_process
 events = PROCESS_STATE
 environment=CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token,RUST_LOG=debug
 ```
+
+### 5. 批量模式（Batching）
+
+当进程反复崩溃时，使用批量模式避免消息爆炸。每分钟聚合发送一次通知：
+
+```ini
+[eventlistener:crashfeishu]
+command = /path/to/crashfeishu -w https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token --batch-interval 1
+events = PROCESS_STATE,TICK_60
+```
+
+**注意**：使用 `--batch-interval` 时，必须在 `events` 中添加 `TICK_60`。
