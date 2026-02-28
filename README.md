@@ -48,7 +48,7 @@ export CRASHFEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your-web
 
 **优先级**：命令行参数 > 环境变量。如果两者都未设置，程序会输出警告日志但继续运行。
 
-## Batching 模式
+## 批量模式
 
 当进程反复崩溃时，可以开启批量发送通知，避免消息爆炸。
 

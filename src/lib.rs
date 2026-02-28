@@ -1,7 +1,6 @@
 use chrono::{Local, Timelike};
 use clap::Parser;
 use log::{debug, error, info, warn};
-use reqwest;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::env;
@@ -153,7 +152,7 @@ fn parse_token_set(line: &str) -> TokenSet {
         .collect()
 }
 
-fn should_monitor(full_name: &str, program: &Vec<String>) -> bool {
+fn should_monitor(full_name: &str, program: &[String]) -> bool {
     if program.is_empty() {
         return true;
     }
